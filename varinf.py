@@ -22,7 +22,7 @@ def cost(h):
     if h > 0:
         return h**2
     else:
-        return 100
+        return torch.tensor(100.0)
 
 
 def generate_samples(count):
@@ -50,9 +50,9 @@ def model(k):
 
 
 def prior():
-    return lambda c: (1 / (100 * torch.sqrt(torch.tensor(2 * math.pi)))) * torch.exp(
+    return lambda c: cost((1 / (100 * torch.sqrt(torch.tensor(2 * math.pi)))) * torch.exp(
         (-1 / 2) * (((c - 50) / (100)) ** 2)
-    )
+    ))
 
 
 def joint():
@@ -75,9 +75,10 @@ def joint():
 
     return breakout
 
-
+#http://proceedings.mlr.press/v89/xu19a/xu19a.pdf
+#https://arxiv.org/pdf/1312.6114.pdf
 def guide():
-    return lambda k, mu, sigma: mu + k * sigma
+    return lambda k, mu, sigma: 5.0 + mu + k * sigma
 
 
 def ELBO_loss(j, g, m_p, obs):
@@ -88,18 +89,22 @@ def ELBO_loss(j, g, m_p, obs):
     def elbo_exp(c, m, s):
         j_c = j()([m + c[0] * s], obs)
         q_c = g()(c[0], mu, sigma)
-        return torch.log(j_c) - torch.log(q_c)
+        return torch.log(j_c) - torch.log(cost(q_c))
 
     expectation_exp = lambda x: elbo_exp((x,), mu, sigma)
     t = torch.tensor(0.0)
     for i in s_points:
-        t += expectation_exp(i)
+        t += expectation_exp(i) #WE WANT TO MAXIMIZE THE ELBO SO THIS SHOULD BE ADATIVE
     int_result = t / len(s_points)
     return int_result
 
+"""
+https://chrisorm.github.io/VI-MC.html
+"""
+
 
 def learn(samples, itrs, gamma):
-    mu = torch.tensor(1000.0, requires_grad=True)
+    mu = torch.tensor(100.0, requires_grad=True)
     sigma = torch.tensor(100.0, requires_grad=True)
     for _ in trange(itrs):
         l = ELBO_loss(joint, guide, (mu, sigma), samples)
@@ -108,11 +113,11 @@ def learn(samples, itrs, gamma):
         dsig = sigma.grad
         print(f"Loss: {l}, dmu: {dmu}, dsigma: {dsig}, mu: {mu}, sigma {sigma}")
         with torch.no_grad():
-            mu -= gamma * dmu
+            mu += gamma * dmu
         mu.grad.zero_()
         sigma.grad.zero_()
 
 
 if __name__ == "__main__":
     s = list(generate_samples(10))
-    learn(s, 5, 100)
+    learn(s, 50, 100)
