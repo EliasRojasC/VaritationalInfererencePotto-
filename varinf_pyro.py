@@ -22,7 +22,7 @@ def cost(h):
 
 def generate_samples(count):
     params = (mass, k_real, spring_length, sd_tie, rope_length, space_h)
-    sys = sim.spring_rope_mass_system(*params)
+    sys = sim.srms_pure_python(*params)
     for _ in range(count):
         s,l,p = sys.bounce_height_stochastic(0.001)
         yield s
